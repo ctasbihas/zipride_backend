@@ -10,7 +10,7 @@ const login = catchAsync(async (req: Request, res: Response) => {
 	res.cookie("token", result.token, {
 		httpOnly: true,
 		secure: process.env.NODE_ENV === "production",
-		sameSite: "lax",
+		sameSite: "none",
 	});
 
 	sendResponse(res, {
