@@ -1,0 +1,47 @@
+{
+	"name": "zipride_backend",
+	"version": "1.0.0",
+	"description": "⚡ ZipRide - Lightning Fast Ride Booking Backend API",
+	"main": "index.js",
+	"scripts": {
+		"dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+		"build": "tsc",
+		"start": "node dist/server.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [
+		"zipride",
+		"ride-booking",
+		"lightning-fast",
+		"transportation",
+		"api",
+		"backend",
+		"ride-sharing"
+	],
+	"author": "ZipRide Development Team",
+	"license": "MIT",
+	"type": "commonjs",
+	"dependencies": {
+		"@types/http-status": "^0.2.30",
+		"bcrypt": "^6.0.0",
+		"bcryptjs": "^3.0.2",
+		"cookie-parser": "^1.4.7",
+		"cors": "^2.8.5",
+		"dotenv": "^17.2.1",
+		"express": "^5.1.0",
+		"http-status": "^2.1.0",
+		"jsonwebtoken": "^9.0.2",
+		"mongoose": "^8.16.5",
+		"zod": "^4.0.14"
+	},
+	"devDependencies": {
+		"@types/bcrypt": "^6.0.0",
+		"@types/bcryptjs": "^2.4.6",
+		"@types/cookie-parser": "^1.4.9",
+		"@types/cors": "^2.8.19",
+		"@types/express": "^5.0.3",
+		"@types/jsonwebtoken": "^9.0.10",
+		"ts-node-dev": "^2.0.0",
+		"typescript": "^5.8.3"
+	}
+}
