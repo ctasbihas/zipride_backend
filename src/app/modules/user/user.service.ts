@@ -2,22 +2,11 @@ import httpStatus from "http-status";
 import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../utils/AppError";
 import { hashPassword } from "../../utils/bcrypt";
+import { generateToken } from "../../utils/jwt";
 import { IUser, UserRole } from "./user.interface";
 import { UserModel } from "./user.model";
 
-interface CreateUserData {
-	name: string;
-	email: string;
-	password: string;
-	role?: UserRole;
-}
-
-interface UpdateUserData {
-	name?: string;
-	email?: string;
-}
-
-const createUser = async (userData: CreateUserData) => {
+const createUser = async (userData: IUser) => {
 	const { name, email, password, role } = userData;
 
 	const existingUser = await UserModel.findOne({
@@ -53,7 +42,16 @@ const createUser = async (userData: CreateUserData) => {
 
 	const { password: _, ...rest } = user.toObject();
 
-	return rest;
+	const token = generateToken({
+		userId: user._id.toString(),
+		email: user.email,
+		role: user.role,
+	});
+
+	return {
+		user: rest,
+		token,
+	};
 };
 
 const getAllUsers = async () => {
@@ -69,7 +67,10 @@ const getAllUsers = async () => {
 	};
 };
 
-const getUserById = async (id: string) => {
+const getUserById = async (id: string, currentUser: JwtPayload) => {
+	if (currentUser.role !== UserRole.ADMIN && currentUser.userId !== id) {
+		throw new AppError("Unauthorized access", httpStatus.FORBIDDEN);
+	}
 	const user = await UserModel.findById(id).select("-password");
 
 	if (!user) {
@@ -117,7 +118,7 @@ const updateUser = async (
 	const user = await UserModel.findByIdAndUpdate(id, updatedData, {
 		new: true,
 		runValidators: true,
-	});
+	}).select("-password");
 
 	if (!user) {
 		throw new AppError("User not found", httpStatus.NOT_FOUND);
@@ -127,11 +128,6 @@ const updateUser = async (
 };
 
 const blockUser = async (id: string, currentUser: JwtPayload) => {
-	// Only admin can block users
-	if (currentUser.role !== UserRole.ADMIN) {
-		throw new AppError("Only admin can block users", httpStatus.FORBIDDEN);
-	}
-
 	// Admin cannot block themselves
 	if (currentUser.userId === id) {
 		throw new AppError("You cannot block yourself", httpStatus.BAD_REQUEST);

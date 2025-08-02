@@ -28,12 +28,12 @@ const getDrivers = catchAsync(async (req: Request, res: Response) => {
 });
 const updateDriver = catchAsync(async (req: Request, res: Response) => {
 	const id = req.params.id;
-	const driverData = req.body;
-	const tokenData = req.user;
+	const updatedData = req.body;
+	const currentUser = req.user;
 	const updatedDriver = await DriverServices.updateDriver(
 		id,
-		driverData,
-		tokenData
+		updatedData,
+		currentUser
 	);
 
 	sendResponse(res, {
@@ -43,25 +43,9 @@ const updateDriver = catchAsync(async (req: Request, res: Response) => {
 		data: updatedDriver,
 	});
 });
-const getDriverById = catchAsync(async (req: Request, res: Response) => {
-	const id = req.params.id;
-	const tokenData = req.user;
-	const result = await DriverServices.getDriverById(id, tokenData);
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "Driver retrieved successfully",
-		data: result.data,
-		meta: result.meta,
-	});
-});
-
-// PATCH /drivers/approve/:id - Approve driver (admin only)
 const approveDriver = catchAsync(async (req: Request, res: Response) => {
 	const id = req.params.id;
-	const tokenData = req.user!;
-	const approvedDriver = await DriverServices.approveDriver(id, tokenData);
+	const approvedDriver = await DriverServices.approveDriver(id);
 
 	sendResponse(res, {
 		statusCode: httpStatus.OK,
@@ -70,12 +54,9 @@ const approveDriver = catchAsync(async (req: Request, res: Response) => {
 		data: approvedDriver,
 	});
 });
-
-// PATCH /drivers/suspend/:id - Suspend driver (admin only)
 const suspendDriver = catchAsync(async (req: Request, res: Response) => {
 	const id = req.params.id;
-	const tokenData = req.user!;
-	const suspendedDriver = await DriverServices.suspendDriver(id, tokenData);
+	const suspendedDriver = await DriverServices.suspendDriver(id);
 
 	sendResponse(res, {
 		statusCode: httpStatus.OK,
@@ -84,8 +65,17 @@ const suspendDriver = catchAsync(async (req: Request, res: Response) => {
 		data: suspendedDriver,
 	});
 });
+const rejectDriver = catchAsync(async (req: Request, res: Response) => {
+	const id = req.params.id;
+	const rejectedDriver = await DriverServices.rejectDriver(id);
 
-// PATCH /drivers/:id/status - Set driver online/offline status (driver only)
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Driver rejected successfully",
+		data: rejectedDriver,
+	});
+});
 const updateDriverStatus = catchAsync(async (req: Request, res: Response) => {
 	const id = req.params.id;
 	const statusData = req.body;
@@ -103,13 +93,27 @@ const updateDriverStatus = catchAsync(async (req: Request, res: Response) => {
 		data: updatedDriver,
 	});
 });
+const getDriverById = catchAsync(async (req: Request, res: Response) => {
+	const id = req.params.id;
+	const tokenData = req.user;
+	const result = await DriverServices.getDriverById(id, tokenData);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Driver retrieved successfully",
+		data: result.data,
+		meta: result.meta,
+	});
+});
 
 export const DriverControllers = {
 	createDriver,
-	getDrivers,
 	updateDriver,
 	getDriverById,
 	approveDriver,
 	suspendDriver,
+	rejectDriver,
 	updateDriverStatus,
+	getDrivers,
 };

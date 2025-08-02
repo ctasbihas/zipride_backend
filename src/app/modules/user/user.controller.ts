@@ -1,18 +1,19 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
-import AppError from "../../utils/AppError";
 import catchAsync from "../../utils/catchAsync";
-import { UserRole } from "./user.interface";
 import { UserServices } from "./user.service";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
-	const user = await UserServices.createUser(req.body);
+	const result = await UserServices.createUser(req.body);
 
 	res.status(httpStatus.CREATED).json({
 		success: true,
 		statusCode: httpStatus.CREATED,
 		message: "User created successfully",
-		data: user,
+		data: result.user,
+		meta: {
+			accessToken: result.token,
+		},
 	});
 });
 
@@ -31,19 +32,7 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
 const getUserById = catchAsync(async (req: Request, res: Response) => {
 	const requestedUserId = req.params.id;
 	const currentUser = req.user;
-
-	// Check if user is accessing their own profile or if they're an admin
-	if (
-		currentUser?.role !== UserRole.ADMIN &&
-		currentUser?.userId !== requestedUserId
-	) {
-		throw new AppError(
-			"You can only access your own profile",
-			httpStatus.FORBIDDEN
-		);
-	}
-
-	const user = await UserServices.getUserById(requestedUserId);
+	const user = await UserServices.getUserById(requestedUserId, currentUser);
 
 	res.status(httpStatus.OK).json({
 		success: true,

@@ -1,17 +1,30 @@
 import mongoose from "mongoose";
-import { IRide, RideStatus } from "./ride.interface";
+import { IRide, IStatusHistory, RideStatus } from "./ride.interface";
+
+const statusHistorySchema = new mongoose.Schema<IStatusHistory>(
+	{
+		status: {
+			type: String,
+			enum: Object.values(RideStatus),
+			required: true,
+		},
+		timestamp: {
+			type: Date,
+			default: Date.now,
+		},
+	},
+	{ _id: false, versionKey: false }
+);
 
 const rideSchema = new mongoose.Schema<IRide>(
 	{
 		driver: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
-			required: true,
 		},
 		rider: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
-			required: true,
 		},
 		passengers: { type: Number, required: true },
 		from: { type: String, required: true },
@@ -21,6 +34,10 @@ const rideSchema = new mongoose.Schema<IRide>(
 			type: String,
 			enum: Object.values(RideStatus),
 			default: RideStatus.PENDING,
+		},
+		statusHistory: {
+			type: [statusHistorySchema],
+			default: [],
 		},
 	},
 	{ timestamps: true, versionKey: false }

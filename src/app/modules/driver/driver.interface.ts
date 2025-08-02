@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { IUser } from "../user/user.interface";
 
 export enum DriverActiveStatus {
 	ONLINE = "online",
@@ -19,4 +20,8 @@ export interface IDriver {
 	vehicleLicense: string;
 	vehicleCapacity: number;
 	vehicleImages?: string[];
+}
+
+export interface PopulatedDriver extends Omit<IDriver, "driverProfile"> {
+	driverProfile: IUser;
 }

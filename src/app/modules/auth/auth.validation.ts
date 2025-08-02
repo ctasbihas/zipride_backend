@@ -14,11 +14,11 @@ export const loginSchema = z.object({
 		.min(1, "Password is required"),
 });
 export const changePasswordSchema = z.object({
-	currentPassword: z
+	oldPassword: z
 		.string({
-			message: "Current password is required and must be a string",
+			message: "Old password is required and must be a string",
 		})
-		.min(1, "Current password is required"),
+		.min(1, "Old password is required"),
 	newPassword: z
 		.string({
 			message: "Password is required and must be a string",

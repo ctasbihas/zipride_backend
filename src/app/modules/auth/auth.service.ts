@@ -1,6 +1,6 @@
 import httpStatus from "http-status";
 import AppError from "../../utils/AppError";
-import { verifyPassword } from "../../utils/bcrypt";
+import { hashPassword, verifyPassword } from "../../utils/bcrypt";
 import { generateToken } from "../../utils/jwt";
 import { UserModel } from "../user/user.model";
 
@@ -34,10 +34,10 @@ const login = async (loginData: LoginData) => {
 		role: user.role,
 	});
 
-	const { password: _, ...userWithoutPassword } = user.toObject();
+	const { password: _, ...rest } = user.toObject();
 
 	return {
-		user: userWithoutPassword,
+		user: rest,
 		token,
 	};
 };
@@ -54,10 +54,12 @@ const changePassword = async (
 
 	const isOldPasswordValid = await verifyPassword(oldPassword, user.password);
 	if (!isOldPasswordValid) {
-		throw new AppError("Invalid current password", httpStatus.UNAUTHORIZED);
+		throw new AppError("Wrong old Password", httpStatus.UNAUTHORIZED);
 	}
 
-	user.password = newPassword;
+	const hashedPassword = await hashPassword(newPassword);
+
+	user.password = hashedPassword;
 	await user.save();
 };
 

@@ -1,6 +1,4 @@
 import { Types } from "mongoose";
-import { IDriver } from "../driver/driver.interface";
-import { UserRole } from "../user/user.interface";
 
 export enum RideStatus {
 	PENDING = "pending",
@@ -12,20 +10,19 @@ export enum RideStatus {
 	REJECTED = "rejected",
 }
 
+export interface IStatusHistory {
+	status: RideStatus;
+	timestamp: Date;
+}
+
 export interface IRide {
 	_id?: Types.ObjectId;
-	driver: Types.ObjectId;
+	driver?: Types.ObjectId;
 	rider: Types.ObjectId;
 	passengers: number;
 	from: string;
 	to: string;
 	fare: number;
 	rideStatus: RideStatus;
-}
-
-export interface PopulatedDriver extends Omit<IDriver, "driverProfile"> {
-	driverProfile: {
-		id: string;
-		role: UserRole;
-	};
+	statusHistory: IStatusHistory[];
 }

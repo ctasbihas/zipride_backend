@@ -25,7 +25,7 @@ app.get("/", (req: Request, res: Response) => {
 	});
 });
 
-app.use("/api", indexRoutes);
+app.use("/api/v1", indexRoutes);
 
 app.use(globalErrorHandler);
 

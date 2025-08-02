@@ -17,7 +17,10 @@ const login = catchAsync(async (req: Request, res: Response) => {
 		statusCode: httpStatus.OK,
 		success: true,
 		message: "User logged in successfully",
-		data: result.token,
+		data: result.user,
+		meta: {
+			accessToken: result.token,
+		},
 	});
 });
 
@@ -37,10 +40,10 @@ const logout = catchAsync(async (req: Request, res: Response) => {
 });
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
-	const { currentPassword, newPassword } = req.body;
+	const { oldPassword, newPassword } = req.body;
 	const userId = req.params.userId;
 
-	await AuthServices.changePassword(userId, currentPassword, newPassword);
+	await AuthServices.changePassword(userId, oldPassword, newPassword);
 
 	sendResponse(res, {
 		statusCode: httpStatus.OK,

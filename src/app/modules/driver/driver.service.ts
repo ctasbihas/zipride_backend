@@ -3,15 +3,25 @@ import AppError from "../../utils/AppError";
 import { RideStatus } from "../ride/ride.interface";
 import { RideModel } from "../ride/ride.model";
 import { UserRole } from "../user/user.interface";
-import { DriverStatus, IDriver } from "./driver.interface";
+import { UserModel } from "../user/user.model";
+import {
+	DriverActiveStatus,
+	DriverStatus,
+	IDriver,
+	PopulatedDriver,
+} from "./driver.interface";
 import { DriverModel } from "./driver.model";
 
-const createDriver = async (driverData: IDriver, tokenData: JwtPayload) => {
-	if (tokenData.role !== UserRole.DRIVER) {
-		throw new AppError("User is not a driver", 403);
+const createDriver = async (driverData: IDriver, currentUser: JwtPayload) => {
+	const driver = await UserModel.findById(currentUser.userId);
+	if (!driver) {
+		throw new AppError("User not found", 404);
+	}
+	if (driver.isBlocked) {
+		throw new AppError("Your account has been blocked", 403);
 	}
 	const existingDriver = await DriverModel.findOne({
-		driverProfile: tokenData.userId,
+		driverProfile: currentUser.userId,
 	});
 	if (existingDriver) {
 		throw new AppError(
@@ -24,7 +34,7 @@ const createDriver = async (driverData: IDriver, tokenData: JwtPayload) => {
 	const newDriver = await DriverModel.create({
 		...driverData,
 		vehicleLicense,
-		driverProfile: tokenData.userId,
+		driverProfile: currentUser.userId,
 	});
 
 	return newDriver;
@@ -32,64 +42,59 @@ const createDriver = async (driverData: IDriver, tokenData: JwtPayload) => {
 const getDrivers = async () => {
 	const drivers = await DriverModel.find().populate(
 		"driverProfile",
-		"name email"
+		"name email role isBlocked"
 	);
 	return drivers;
 };
 const updateDriver = async (
 	id: string,
-	driverData: Partial<IDriver>,
-	tokenData: JwtPayload
+	updatedData: Partial<IDriver>,
+	currentUser: JwtPayload
 ) => {
 	const driver = await DriverModel.findOne({
 		driverProfile: id,
-	}).populate("driverProfile", "name email role");
+	});
 	if (!driver) {
 		throw new AppError("Driver not found", 404);
 	}
 
-	const isAdmin = tokenData.role === UserRole.ADMIN;
-	const isOwner = tokenData.userId === driver.driverProfile.id;
+	const isOwner = currentUser.userId === driver.driverProfile.id;
 
-	// Only owner or admin can update
-	if (!isOwner && !isAdmin) {
-		throw new AppError("You are not authorized to update this driver", 403);
+	if (!isOwner) {
+		throw new AppError("You are not authorized", 403);
 	}
 
-	// Only admin can update approvalStatus
-	if (driverData.approvalStatus && !isAdmin) {
+	if (updatedData.approvalStatus) {
 		throw new AppError("Only admin can update approval status", 403);
 	}
 
-	// Only approved drivers can have activeStatus updated
-	if (
-		driverData.activeStatus &&
-		driver.approvalStatus !== DriverStatus.APPROVED
-	) {
-		throw new AppError(
-			"Active status can only be updated for approved drivers",
-			400
-		);
+	if (updatedData.activeStatus) {
+		if (
+			!Object.values(DriverActiveStatus).includes(
+				updatedData.activeStatus
+			)
+		) {
+			throw new AppError("Invalid active status", 400);
+		}
+		if (driver.approvalStatus !== DriverStatus.APPROVED) {
+			throw new AppError(
+				"Active status can only be updated for approved drivers",
+				400
+			);
+		}
 	}
 
-	// Only owner can update activeStatus, not admin
-	if (driverData.activeStatus && isAdmin) {
-		throw new AppError("Admin cannot update active status", 400);
-	}
-
-	// Prevent updating driverProfile
-	if (driverData.driverProfile) {
+	if (updatedData.driverProfile) {
 		throw new AppError("Driver profile cannot be updated", 400);
 	}
 
-	const updateData: Partial<IDriver> = { ...driverData };
-	if (driverData.vehicleLicense) {
-		updateData.vehicleLicense = driverData.vehicleLicense.toUpperCase();
+	if (updatedData.vehicleLicense) {
+		updatedData.vehicleLicense = updatedData.vehicleLicense.toUpperCase();
 	}
 
 	const updatedDriver = await DriverModel.findOneAndUpdate(
 		{ driverProfile: id },
-		updateData,
+		updatedData,
 		{
 			new: true,
 			runValidators: true,
@@ -124,23 +129,20 @@ const getDriverById = async (id: string, tokenData: JwtPayload) => {
 		},
 	};
 };
-
-const approveDriver = async (id: string, tokenData: JwtPayload) => {
-	// Only admin can approve drivers
-	if (tokenData.role !== UserRole.ADMIN) {
-		throw new AppError("Only admin can approve drivers", 403);
-	}
-
-	const driver = await DriverModel.findOne({ driverProfile: id }).populate(
-		"driverProfile",
-		"name email role"
-	);
-
-	if (!driver) {
+const approveDriver = async (id: string) => {
+	const driverInfo: PopulatedDriver | null = await DriverModel.findOne({
+		driverProfile: id,
+	})
+		.populate("driverProfile", "isBlocked")
+		.select("activeStatus approvalStatus vehicleCapacity");
+	if (!driverInfo) {
 		throw new AppError("Driver not found", 404);
 	}
+	if (driverInfo.driverProfile.isBlocked) {
+		throw new AppError("The account is blocked", 403);
+	}
 
-	if (driver.approvalStatus === DriverStatus.APPROVED) {
+	if (driverInfo.approvalStatus === DriverStatus.APPROVED) {
 		throw new AppError("Driver is already approved", 400);
 	}
 
@@ -155,31 +157,28 @@ const approveDriver = async (id: string, tokenData: JwtPayload) => {
 
 	return updatedDriver;
 };
-
-const suspendDriver = async (id: string, tokenData: JwtPayload) => {
-	// Only admin can suspend drivers
-	if (tokenData.role !== UserRole.ADMIN) {
-		throw new AppError("Only admin can suspend drivers", 403);
-	}
-
-	const driver = await DriverModel.findOne({ driverProfile: id }).populate(
-		"driverProfile",
-		"name email role"
-	);
-
-	if (!driver) {
+const suspendDriver = async (id: string) => {
+	const driverInfo: PopulatedDriver | null = await DriverModel.findOne({
+		driverProfile: id,
+	})
+		.populate("driverProfile", "isBlocked")
+		.select("activeStatus approvalStatus vehicleCapacity");
+	if (!driverInfo) {
 		throw new AppError("Driver not found", 404);
 	}
+	if (driverInfo.driverProfile.isBlocked) {
+		throw new AppError("The account is blocked", 403);
+	}
 
-	if (driver.approvalStatus === DriverStatus.SUSPENDED) {
+	if (driverInfo.approvalStatus === DriverStatus.SUSPENDED) {
 		throw new AppError("Driver is already suspended", 400);
 	}
 
 	const updatedDriver = await DriverModel.findOneAndUpdate(
 		{ driverProfile: id },
-		{ 
+		{
 			approvalStatus: DriverStatus.SUSPENDED,
-			activeStatus: false // Inactive when suspended
+			activeStatus: DriverActiveStatus.OFFLINE,
 		},
 		{
 			new: true,
@@ -189,8 +188,36 @@ const suspendDriver = async (id: string, tokenData: JwtPayload) => {
 
 	return updatedDriver;
 };
+const rejectDriver = async (id: string) => {
+	const driverInfo = await DriverModel.findOne({
+		driverProfile: id,
+	});
+	if (!driverInfo) {
+		throw new AppError("Driver not found", 404);
+	}
 
-const updateDriverStatus = async (id: string, driverData: { activeStatus: boolean }, tokenData: JwtPayload) => {
+	if (driverInfo.approvalStatus === DriverStatus.REJECTED) {
+		throw new AppError("Driver is already rejected", 400);
+	}
+
+	const updatedDriver = await DriverModel.findOneAndUpdate(
+		{ driverProfile: id },
+		{
+			approvalStatus: DriverStatus.REJECTED,
+		},
+		{
+			new: true,
+			runValidators: true,
+		}
+	).populate("driverProfile", "name email role");
+
+	return updatedDriver;
+};
+const updateDriverStatus = async (
+	id: string,
+	driverData: { activeStatus: DriverActiveStatus },
+	tokenData: JwtPayload
+) => {
 	const driver = await DriverModel.findOne({ driverProfile: id }).populate(
 		"driverProfile",
 		"name email role"
@@ -201,15 +228,18 @@ const updateDriverStatus = async (id: string, driverData: { activeStatus: boolea
 	}
 
 	const isOwner = tokenData.userId === driver.driverProfile.id;
-
-	// Only the driver can update their active status
 	if (!isOwner) {
 		throw new AppError("You can only update your own active status", 403);
 	}
 
-	// Only approved drivers can update active status
 	if (driver.approvalStatus !== DriverStatus.APPROVED) {
-		throw new AppError("Only approved drivers can update active status", 400);
+		throw new AppError(
+			"Only approved drivers can update active status",
+			400
+		);
+	}
+	if (!Object.values(DriverActiveStatus).includes(driverData.activeStatus)) {
+		throw new AppError("Invalid active status", 400);
 	}
 
 	const updatedDriver = await DriverModel.findOneAndUpdate(
@@ -231,5 +261,6 @@ export const DriverServices = {
 	getDriverById,
 	approveDriver,
 	suspendDriver,
+	rejectDriver,
 	updateDriverStatus,
 };

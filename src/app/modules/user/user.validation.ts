@@ -19,20 +19,14 @@ export const createUserSchema = z.object({
 		.string({
 			message: "Password is required and must be a string",
 		})
-		.min(2, "Password must be at least 2 characters long")
+		.min(8, "Password must be at least 8 characters long")
 		.max(100, "Password cannot exceed 100 characters")
+		.regex(/[A-Z]/, "Password must contain at least 1 uppercase letter")
+		.regex(/[a-z]/, "Password must contain at least 1 lowercase letter")
+		.regex(/[0-9]/, "Password must contain at least 1 number")
 		.regex(
-			/[A-Z].*[A-Z]/,
-			"Password must contain at least 2 uppercase letters"
-		)
-		.regex(
-			/[a-z].*[a-z]/,
-			"Password must contain at least 2 lowercase letters"
-		)
-		.regex(/[0-9].*[0-9]/, "Password must contain at least 2 numbers")
-		.regex(
-			/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?].*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
-			"Password must contain at least 2 special characters"
+			/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
+			"Password must contain at least 1 special character"
 		),
 	role: z
 		.enum([UserRole.DRIVER, UserRole.RIDER], {

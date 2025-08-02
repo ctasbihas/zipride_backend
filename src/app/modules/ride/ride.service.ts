@@ -1,50 +1,36 @@
+import httpStatus from "http-status";
 import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../utils/AppError";
-import { DriverActiveStatus, DriverStatus } from "../driver/driver.interface";
+import { addStatusHistoryEntry } from "../../utils/rideHelpers";
+import {
+	DriverActiveStatus,
+	DriverStatus,
+	PopulatedDriver,
+} from "../driver/driver.interface";
 import { DriverModel } from "../driver/driver.model";
 import { UserRole } from "../user/user.interface";
 import { UserModel } from "../user/user.model";
 import { IRide, RideStatus } from "./ride.interface";
 import { RideModel } from "./ride.model";
 
-const createRide = async (rideData: IRide, tokenData: JwtPayload) => {
-	// Validate token user role early
-	if (tokenData.role !== UserRole.RIDER) {
-		throw new AppError("You are not a rider", 403);
-	}
-
-	// Find rider and select only the role field
-	const rider = await UserModel.findById(rideData.rider).select(
+const createRide = async (
+	rideData: Partial<IRide>,
+	currentUser: JwtPayload
+) => {
+	const rider = await UserModel.findById(currentUser.userId).select(
 		"role isBlocked"
 	);
 	if (!rider) {
-		throw new AppError("Rider not found", 404);
+		throw new AppError("Rider not found", httpStatus.NOT_FOUND);
 	}
 
-	// Find driver info and ensure the driver exists
-	const driverInfo = await DriverModel.findOne({
-		driverProfile: rideData.driver,
-	});
-	const driver = await UserModel.findById(rideData.driver);
-	if (!driverInfo || !driver) {
-		throw new AppError("Driver not found", 404);
-	}
-
-	// Ensure the token user is the same as the rider
-	if (tokenData.userId !== rider.id) {
-		throw new AppError("You can only create rides for yourself", 403);
-	}
-
-	// Validate rider role
 	if (rider.role !== UserRole.RIDER) {
-		throw new AppError("Targeted rider isn't a rider", 400);
-	}
-	// Validate driver role
-	if (driver.role !== UserRole.DRIVER) {
-		throw new AppError("Targeted driver isn't a driver", 400);
+		throw new AppError(
+			"Something went wrong. Please re-login",
+			httpStatus.INTERNAL_SERVER_ERROR
+		);
 	}
 
-	// Check if the rider already has an active ride
 	const existingRide = await RideModel.findOne({
 		rider: rider._id,
 		rideStatus: {
@@ -57,70 +43,34 @@ const createRide = async (rideData: IRide, tokenData: JwtPayload) => {
 		},
 	});
 	if (existingRide) {
-		throw new AppError(`One Ride already ${existingRide.rideStatus}`, 400);
-	}
-
-	// Validate driver approval status
-	if (driverInfo.approvalStatus === DriverStatus.PENDING) {
-		throw new AppError("This driver is not approved yet", 400);
-	}
-	if (driverInfo.approvalStatus === DriverStatus.REJECTED) {
-		throw new AppError("This driver is rejected", 400);
-	}
-	if (driverInfo.approvalStatus === DriverStatus.SUSPENDED) {
-		throw new AppError("This driver is suspended", 400);
-	}
-
-	// Validate driver active status
-	if (driverInfo.activeStatus !== DriverActiveStatus.ONLINE) {
-		throw new AppError("This driver is not online", 400);
-	}
-
-	// Check if driver is blocked
-	if (driver.isBlocked) {
-		throw new AppError("This driver is blocked", 400);
-	}
-
-	// Check if rider is blocked
-	if (rider.isBlocked) {
-		throw new AppError("Your account is blocked", 403);
-	}
-
-	// Check if driver is already assigned to a ride
-	const driverActiveRide = await RideModel.findOne({
-		driver: driver.id,
-		rideStatus: {
-			$in: [
-				RideStatus.ACCEPTED,
-				RideStatus.PICKED_UP,
-				RideStatus.IN_TRANSIT,
-			],
-		},
-	});
-
-	if (driverActiveRide) {
-		throw new AppError("Driver is not available", 400);
-	}
-
-	// Check if number of passengers exceeds vehicle capacity
-	if (rideData.passengers > driverInfo.vehicleCapacity) {
 		throw new AppError(
-			"Number of passengers exceeds vehicle capacity",
-			400
+			`You already have ${
+				existingRide.rideStatus === RideStatus.PENDING
+					? "requested for a ride"
+					: "an on-going ride"
+			}`,
+			httpStatus.FORBIDDEN
 		);
 	}
 
-	// Create and return the new ride
+	if (rider.isBlocked) {
+		throw new AppError("Your account is blocked", httpStatus.FORBIDDEN);
+	}
+
 	const newRide = await RideModel.create({
 		...rideData,
 		rider: rider.id,
-		driver: driver.id,
+		statusHistory: [
+			{
+				status: rideData.rideStatus || RideStatus.PENDING,
+				timestamp: new Date(),
+			},
+		],
 	});
 
 	return newRide;
 };
 const getDriverRides = async (driverId: string, tokenData: JwtPayload) => {
-	// Validate token user role
 	if (
 		tokenData.role !== UserRole.DRIVER &&
 		tokenData.role !== UserRole.ADMIN
@@ -128,14 +78,21 @@ const getDriverRides = async (driverId: string, tokenData: JwtPayload) => {
 		throw new AppError("You are not authorized", 403);
 	}
 
-	// Ensure the token user is the same as the driver
 	if (tokenData.userId !== driverId && tokenData.role !== UserRole.ADMIN) {
 		throw new AppError("You can only view your own rides", 403);
 	}
 
-	// Find and return the driver's rides
-	const rides = await RideModel.find({ driver: driverId });
-	return rides;
+	const rides = await RideModel.find({ driver: driverId })
+		.populate("rider", "name email")
+		.populate("driver", "name email")
+		.sort({ createdAt: -1 });
+
+	return {
+		data: rides,
+		meta: {
+			total: rides.length,
+		},
+	};
 };
 
 const updateRideStatus = async (
@@ -143,14 +100,6 @@ const updateRideStatus = async (
 	rideData: Partial<IRide>,
 	tokenData: JwtPayload
 ) => {
-	if (
-		tokenData.role === UserRole.RIDER &&
-		rideData.rideStatus !== RideStatus.CANCELLED
-	) {
-		throw new AppError("You are not authorized to update rides", 403);
-	}
-
-	// Validate ride status early to avoid unnecessary DB calls
 	if (!rideData.rideStatus) {
 		throw new AppError("Ride status is required", 400);
 	}
@@ -158,15 +107,32 @@ const updateRideStatus = async (
 		throw new AppError("Invalid ride status", 400);
 	}
 
-	// Fetch only required fields for performance
-	const ride = await RideModel.findById(rideId).select("driver rideStatus");
+	const ride = await RideModel.findById(rideId).select(
+		"driver rider rideStatus"
+	);
 	if (!ride) {
 		throw new AppError("Ride not found", 404);
 	}
 
-	// Ensure the token user is the same as the driver
-	if (tokenData.userId !== String(ride.driver)) {
-		throw new AppError("You can only update your own rides", 403);
+	if (tokenData.role === UserRole.RIDER) {
+		if (String(ride.rider) !== tokenData.userId) {
+			throw new AppError("You can only update your own rides", 403);
+		}
+		if (rideData.rideStatus !== RideStatus.CANCELLED) {
+			throw new AppError("Riders can only cancel rides", 403);
+		}
+		if (ride.rideStatus !== RideStatus.PENDING) {
+			throw new AppError("You can only cancel pending rides", 400);
+		}
+	} else if (tokenData.role === UserRole.DRIVER) {
+		if (tokenData.userId !== String(ride.driver)) {
+			throw new AppError(
+				"You can only update rides assigned to you",
+				403
+			);
+		}
+	} else {
+		throw new AppError("You are not authorized to update rides", 403);
 	}
 
 	// Enforce step-by-step status transitions
@@ -194,12 +160,23 @@ const updateRideStatus = async (
 		);
 	}
 
-	// Use findOneAndUpdate for atomicity and to avoid double DB round-trip
+	const fullRide = await RideModel.findById(rideId);
+	if (!fullRide) {
+		throw new AppError("Ride not found", 404);
+	}
+
+	addStatusHistoryEntry(fullRide, nextStatus);
+
 	const updatedRide = await RideModel.findOneAndUpdate(
-		{ _id: rideId, driver: ride.driver, rideStatus: currentStatus },
-		{ rideStatus: nextStatus },
+		{ _id: rideId, rideStatus: currentStatus },
+		{
+			rideStatus: nextStatus,
+			statusHistory: fullRide.statusHistory,
+		},
 		{ new: true }
-	);
+	)
+		.populate("rider", "name email")
+		.populate("driver", "name email");
 
 	if (!updatedRide) {
 		throw new AppError("Ride not found or status already changed", 404);
@@ -209,35 +186,52 @@ const updateRideStatus = async (
 };
 
 const getRiderRides = async (riderId: string, tokenData: JwtPayload) => {
-	// Validate token user role
 	if (tokenData.role !== UserRole.RIDER) {
 		throw new AppError("You are not authorized", 403);
 	}
 
-	// Ensure the token user is the same as the rider
 	if (tokenData.userId !== riderId) {
 		throw new AppError("You can only view your own rides", 403);
 	}
 
-	// Find and return the rider's rides
-	const rides = await RideModel.find({ rider: riderId });
-	return rides;
+	const rides = await RideModel.find({ rider: riderId })
+		.populate("rider", "name email")
+		.populate("driver", "name email")
+		.sort({ createdAt: -1 });
+
+	return {
+		data: rides,
+		meta: {
+			total: rides.length,
+		},
+	};
 };
 
-// GET /rides/me - Get current user's rides (rider or driver)
 const getCurrentUserRides = async (tokenData: JwtPayload) => {
+	const filter: any = {};
+
 	if (tokenData.role === UserRole.RIDER) {
-		return await RideModel.find({ rider: tokenData.userId });
+		filter.rider = tokenData.userId;
 	} else if (tokenData.role === UserRole.DRIVER) {
-		return await RideModel.find({ driver: tokenData.userId });
+		filter.driver = tokenData.userId;
 	} else {
 		throw new AppError("You are not authorized to view rides", 403);
 	}
+
+	const rides = await RideModel.find(filter)
+		.populate("rider", "name email")
+		.populate("driver", "name email")
+		.sort({ createdAt: -1 });
+
+	return {
+		data: rides,
+		meta: {
+			total: rides.length,
+		},
+	};
 };
 
-// PATCH /rides/:id/cancel - Cancel ride (rider only)
 const cancelRide = async (rideId: string, tokenData: JwtPayload) => {
-	// Only riders can cancel rides
 	if (tokenData.role !== UserRole.RIDER) {
 		throw new AppError("Only riders can cancel rides", 403);
 	}
@@ -247,32 +241,120 @@ const cancelRide = async (rideId: string, tokenData: JwtPayload) => {
 		throw new AppError("Ride not found", 404);
 	}
 
-	// Check if the rider owns this ride
 	if (String(ride.rider) !== tokenData.userId) {
 		throw new AppError("You can only cancel your own rides", 403);
 	}
 
-	// Check if ride can be cancelled
 	if (ride.rideStatus !== RideStatus.PENDING) {
 		throw new AppError("Ride can only be cancelled when pending", 400);
 	}
 
-	// Update ride status to cancelled
+	addStatusHistoryEntry(ride, RideStatus.CANCELLED);
+
 	const cancelledRide = await RideModel.findByIdAndUpdate(
 		rideId,
-		{ rideStatus: RideStatus.CANCELLED },
+		{
+			rideStatus: RideStatus.CANCELLED,
+			statusHistory: ride.statusHistory,
+		},
 		{ new: true }
-	);
+	)
+		.populate("rider", "name email")
+		.populate("driver", "name email");
 
 	return cancelledRide;
 };
 
-// GET /rides - Get all rides (admin only)
+const acceptRide = async (rideId: string, currentUser: JwtPayload) => {
+	const ride = await RideModel.findById(rideId);
+	if (!ride) {
+		throw new AppError("Ride not found", httpStatus.NOT_FOUND);
+	}
+
+	const driverInfo: PopulatedDriver | null = await DriverModel.findOne({
+		driverProfile: currentUser.userId,
+	})
+		.populate("driverProfile", "isBlocked")
+		.select("activeStatus approvalStatus vehicleCapacity");
+
+	if (!driverInfo) {
+		throw new AppError("Driver not found", httpStatus.NOT_FOUND);
+	}
+	if (driverInfo.driverProfile.isBlocked) {
+		throw new AppError("Your account is blocked", httpStatus.FORBIDDEN);
+	}
+	if (driverInfo.approvalStatus !== DriverStatus.APPROVED) {
+		throw new AppError(
+			"You are not approved to accept rides",
+			httpStatus.FORBIDDEN
+		);
+	}
+	if (driverInfo.activeStatus !== DriverActiveStatus.ONLINE) {
+		throw new AppError("You are not online", httpStatus.FORBIDDEN);
+	}
+	if (driverInfo.vehicleCapacity < ride.passengers) {
+		throw new AppError(
+			"Your vehicle capacity is not enough for this ride",
+			httpStatus.FORBIDDEN
+		);
+	}
+	if (ride.rideStatus !== RideStatus.PENDING) {
+		throw new AppError(
+			"Ride is no longer available",
+			httpStatus.BAD_REQUEST
+		);
+	}
+
+	addStatusHistoryEntry(ride, RideStatus.ACCEPTED);
+
+	ride.rideStatus = RideStatus.ACCEPTED;
+	ride.driver = currentUser.userId;
+	await ride.save();
+
+	const populatedRide = await RideModel.findById(ride._id)
+		.populate("rider", "name email")
+		.populate("driver", "name email");
+
+	return populatedRide;
+};
+
+const getAvailableRides = async (currentUser: JwtPayload) => {
+	const driver = await UserModel.findById(currentUser.userId).select(
+		"role isBlocked"
+	);
+	if (!driver) {
+		throw new AppError("Unauthorized", httpStatus.FORBIDDEN);
+	}
+	if (driver.isBlocked) {
+		throw new AppError("Your account is blocked", httpStatus.FORBIDDEN);
+	}
+
+	const availableRides = await RideModel.find({
+		rideStatus: RideStatus.PENDING,
+	})
+		.populate("rider", "name email")
+		.sort({ createdAt: -1 });
+
+	return {
+		data: availableRides,
+		meta: {
+			total: availableRides.length,
+		},
+	};
+};
+
 const getAllRides = async () => {
-	return await RideModel.find()
+	const rides = await RideModel.find()
 		.populate("rider", "name email")
 		.populate("driver", "name email")
 		.sort({ createdAt: -1 });
+
+	return {
+		data: rides,
+		meta: {
+			total: rides.length,
+		},
+	};
 };
 
 export const RideServices = {
@@ -283,4 +365,6 @@ export const RideServices = {
 	getCurrentUserRides,
 	cancelRide,
 	getAllRides,
+	getAvailableRides,
+	acceptRide,
 };

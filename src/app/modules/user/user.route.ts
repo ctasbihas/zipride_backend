@@ -13,7 +13,12 @@ router.post(
 	UserControllers.createUser
 );
 router.get("/", checkAuth(UserRole.ADMIN), UserControllers.getAllUsers);
-router.get("/:id", checkAuth(UserRole.ADMIN), UserControllers.getUserById);
+router.get(
+	"/:id",
+	checkAuth(...Object.values(UserRole)),
+	UserControllers.getUserById
+);
+// Use update user api to unblock an user but it still requires you to be an admin
 router.patch(
 	"/block/:id",
 	checkAuth(UserRole.ADMIN),
