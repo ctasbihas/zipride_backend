@@ -17,7 +17,55 @@ const createRide = catchAsync(async (req: Request, res: Response) => {
 		data: newRide,
 	});
 });
+const getAllRides = catchAsync(async (req: Request, res: Response) => {
+	const result = await RideServices.getAllRides();
 
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "All rides retrieved successfully",
+		data: result.data,
+		meta: result.meta,
+	});
+});
+const getCurrentUserRides = catchAsync(async (req: Request, res: Response) => {
+	const tokenData = req.user;
+	const result = await RideServices.getCurrentUserRides(tokenData);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "User rides retrieved successfully",
+		data: result.data,
+		meta: result.meta,
+	});
+});
+const getDriverRides = catchAsync(async (req: Request, res: Response) => {
+	const driverId = req.params.driverId;
+	const tokenData = req.user;
+	const result = await RideServices.getDriverRides(driverId, tokenData);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Driver rides retrieved successfully",
+		data: result.data,
+		meta: result.meta,
+	});
+});
+const getRiderRides = catchAsync(async (req: Request, res: Response) => {
+	const riderId = req.params.riderId;
+	const tokenData = req.user;
+	const result = await RideServices.getRiderRides(riderId, tokenData);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Rider rides retrieved successfully",
+		data: result.data,
+		meta: result.meta,
+	});
+});
 const getAvailableRides = catchAsync(async (req: Request, res: Response) => {
 	const tokenData = req.user;
 	const result = await RideServices.getAvailableRides(tokenData);
@@ -30,18 +78,28 @@ const getAvailableRides = catchAsync(async (req: Request, res: Response) => {
 		meta: result.meta,
 	});
 });
-
-const getDriverRides = catchAsync(async (req: Request, res: Response) => {
-	const driverId = req.params.driverId;
+const cancelRide = catchAsync(async (req: Request, res: Response) => {
+	const rideId = req.params.id;
 	const tokenData = req.user;
-	const result = await RideServices.getDriverRides(driverId, tokenData);
+	const cancelledRide = await RideServices.cancelRide(rideId, tokenData);
 
 	sendResponse(res, {
 		statusCode: httpStatus.OK,
 		success: true,
-		message: "Driver rides retrieved successfully",
-		data: result.data,
-		meta: result.meta,
+		message: "Ride cancelled successfully",
+		data: cancelledRide,
+	});
+});
+const acceptRide = catchAsync(async (req: Request, res: Response) => {
+	const rideId = req.params.id;
+	const tokenData = req.user;
+	const acceptedRide = await RideServices.acceptRide(rideId, tokenData);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "⚡ ZipRide accepted successfully! Time to zip to the rider!",
+		data: acceptedRide,
 	});
 });
 const updateRideStatus = catchAsync(async (req: Request, res: Response) => {
@@ -59,74 +117,6 @@ const updateRideStatus = catchAsync(async (req: Request, res: Response) => {
 		success: true,
 		message: "Ride status updated successfully",
 		data: updatedRide,
-	});
-});
-
-// GET /rides/me - Get current user's rides (rider or driver)
-const getCurrentUserRides = catchAsync(async (req: Request, res: Response) => {
-	const tokenData = req.user;
-	const result = await RideServices.getCurrentUserRides(tokenData);
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "User rides retrieved successfully",
-		data: result.data,
-		meta: result.meta,
-	});
-});
-
-// PATCH /rides/:id/cancel - Cancel ride (rider only)
-const cancelRide = catchAsync(async (req: Request, res: Response) => {
-	const rideId = req.params.id;
-	const tokenData = req.user;
-	const cancelledRide = await RideServices.cancelRide(rideId, tokenData);
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "Ride cancelled successfully",
-		data: cancelledRide,
-	});
-});
-// PATCH /rides/:id/accept - Driver accepts a ride
-const acceptRide = catchAsync(async (req: Request, res: Response) => {
-	const rideId = req.params.id;
-	const tokenData = req.user;
-	const acceptedRide = await RideServices.acceptRide(rideId, tokenData);
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "⚡ ZipRide accepted successfully! Time to zip to the rider!",
-		data: acceptedRide,
-	});
-});
-
-// GET /rides - Get all rides (admin only)
-const getAllRides = catchAsync(async (req: Request, res: Response) => {
-	const result = await RideServices.getAllRides();
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "All rides retrieved successfully",
-		data: result.data,
-		meta: result.meta,
-	});
-});
-
-const getRiderRides = catchAsync(async (req: Request, res: Response) => {
-	const riderId = req.params.riderId;
-	const tokenData = req.user;
-	const result = await RideServices.getRiderRides(riderId, tokenData);
-
-	sendResponse(res, {
-		statusCode: httpStatus.OK,
-		success: true,
-		message: "Rider rides retrieved successfully",
-		data: result.data,
-		meta: result.meta,
 	});
 });
 

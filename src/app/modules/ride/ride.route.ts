@@ -14,17 +14,6 @@ router.get(
 	checkAuth(UserRole.DRIVER),
 	RideControllers.getAvailableRides
 );
-router.patch(
-	"/:id/status",
-	checkAuth(UserRole.DRIVER, UserRole.RIDER),
-	validateRequest(updateRideStatusSchema),
-	RideControllers.updateRideStatus
-);
-router.patch(
-	"/:id/accept",
-	checkAuth(UserRole.DRIVER),
-	RideControllers.acceptRide
-);
 
 router.get(
 	"/me",
@@ -32,11 +21,42 @@ router.get(
 	RideControllers.getCurrentUserRides
 );
 
+router.get(
+	"/driver/:driverId",
+	checkAuth(UserRole.DRIVER, UserRole.ADMIN),
+	RideControllers.getDriverRides
+);
+
+router.get(
+	"/rider/:riderId",
+	checkAuth(UserRole.RIDER, UserRole.ADMIN),
+	RideControllers.getRiderRides
+);
+
 router.post(
 	"/request",
 	checkAuth(UserRole.RIDER),
 	validateRequest(createRideSchema),
 	RideControllers.createRide
+);
+
+router.patch(
+	"/:id/accept",
+	checkAuth(UserRole.DRIVER),
+	RideControllers.acceptRide
+);
+
+router.patch(
+	"/:id/cancel",
+	checkAuth(UserRole.RIDER),
+	RideControllers.cancelRide
+);
+
+router.patch(
+	"/:id/status",
+	checkAuth(UserRole.DRIVER, UserRole.RIDER),
+	validateRequest(updateRideStatusSchema),
+	RideControllers.updateRideStatus
 );
 
 export const RideRoutes = router;
