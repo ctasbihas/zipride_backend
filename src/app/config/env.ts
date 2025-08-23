@@ -9,7 +9,8 @@ interface IEnv {
 	JWT_SECRET: string;
 	JWT_EXPIRES_IN: string;
 	BCRYPT_SALT_ROUNDS: string;
-	FRONTEND_URL: string;
+	DEVELOPMENT_FRONTEND_URL: string;
+	PRODUCTION_FRONTEND_URL: string;
 }
 
 const loadEnvs = (): IEnv => {
@@ -20,7 +21,8 @@ const loadEnvs = (): IEnv => {
 		"JWT_SECRET",
 		"JWT_EXPIRES_IN",
 		"BCRYPT_SALT_ROUNDS",
-		"FRONTEND_URL",
+		"DEVELOPMENT_FRONTEND_URL",
+		"PRODUCTION_FRONTEND_URL",
 	];
 	requiredEnvs.forEach((env) => {
 		if (!process.env[env]) {
@@ -34,7 +36,8 @@ const loadEnvs = (): IEnv => {
 		JWT_SECRET: process.env.JWT_SECRET!,
 		JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN!,
 		BCRYPT_SALT_ROUNDS: process.env.BCRYPT_SALT_ROUNDS!,
-		FRONTEND_URL: process.env.FRONTEND_URL!,
+		DEVELOPMENT_FRONTEND_URL: process.env.DEVELOPMENT_FRONTEND_URL!,
+		PRODUCTION_FRONTEND_URL: process.env.PRODUCTION_FRONTEND_URL!,
 	};
 };
 

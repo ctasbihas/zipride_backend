@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
 import mongoose from "mongoose";
 import { ZodError } from "zod";
+import sendResponse from "../utils/sendResponse";
 
 interface CustomError extends Error {
 	statusCode?: number;
@@ -82,11 +83,12 @@ const globalErrorHandler = (
 		message = simplifiedError.message;
 	}
 
-	res.status(statusCode).json({
-		success: false,
+	sendResponse(res, {
 		statusCode,
+		success: false,
 		message,
 		...(errorSources.length > 0 && { errorSources }),
+		data: errorSources,
 	});
 };
 

@@ -9,8 +9,9 @@ const login = catchAsync(async (req: Request, res: Response) => {
 
 	res.cookie("token", result.token, {
 		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
+		secure: true,
 		sameSite: "none",
+		maxAge: 3 * 24 * 60 * 60 * 1000,
 	});
 
 	sendResponse(res, {
@@ -27,8 +28,9 @@ const login = catchAsync(async (req: Request, res: Response) => {
 const logout = catchAsync(async (req: Request, res: Response) => {
 	res.clearCookie("token", {
 		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "lax",
+		secure: true,
+		sameSite: "none",
+		maxAge: 3 * 24 * 60 * 60 * 1000,
 	});
 
 	sendResponse(res, {

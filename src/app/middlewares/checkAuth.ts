@@ -7,7 +7,7 @@ import { verifyToken } from "../utils/jwt";
 export const checkAuth = (...roles: Partial<UserRole>[]) => {
 	return async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const token = req.headers.authorization;
+			const token = req.headers.authorization || req.cookies.token;
 			if (!token) {
 				throw new AppError("Authorization token is required", 401);
 			}

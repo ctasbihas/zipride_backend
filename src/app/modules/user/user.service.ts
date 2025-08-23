@@ -66,6 +66,9 @@ const getAllUsers = async () => {
 		},
 	};
 };
+const currentUser = async (user: JwtPayload) => {
+	return await UserModel.findById(user.userId).select("-password");
+};
 
 const getUserById = async (id: string, currentUser: JwtPayload) => {
 	if (currentUser.role !== UserRole.ADMIN && currentUser.userId !== id) {
@@ -157,6 +160,7 @@ const blockUser = async (id: string, currentUser: JwtPayload) => {
 export const UserServices = {
 	createUser,
 	getAllUsers,
+	currentUser,
 	getUserById,
 	updateUser,
 	blockUser,
