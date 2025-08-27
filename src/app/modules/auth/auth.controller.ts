@@ -30,7 +30,6 @@ const logout = catchAsync(async (req: Request, res: Response) => {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
-		maxAge: 3 * 24 * 60 * 60 * 1000,
 	});
 
 	sendResponse(res, {
@@ -43,7 +42,9 @@ const logout = catchAsync(async (req: Request, res: Response) => {
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
 	const { oldPassword, newPassword } = req.body;
-	const userId = req.params.userId;
+	const user = req.user;
+	const userId = user.userId;
+	console.log(user);
 
 	await AuthServices.changePassword(userId, oldPassword, newPassword);
 

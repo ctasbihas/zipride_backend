@@ -83,6 +83,29 @@ const getAllRides = async () => {
 		},
 	};
 };
+const getActiveRide = async (tokenData: JwtPayload) => {
+	let filter: any = {};
+	const activeStatuses = [
+		RideStatus.ACCEPTED,
+		RideStatus.PICKED_UP,
+		RideStatus.IN_TRANSIT,
+		RideStatus.PENDING,
+	];
+	if (tokenData.role === UserRole.DRIVER) {
+		filter.driver = tokenData.userId;
+		filter.rideStatus = { $in: activeStatuses };
+	} else if (tokenData.role === UserRole.RIDER) {
+		filter.rider = tokenData.userId;
+		filter.rideStatus = { $in: activeStatuses };
+	} else {
+		throw new AppError("You are not authorized to view active rides", 403);
+	}
+	const ride = await RideModel.findOne(filter)
+		.populate("rider", "name email")
+		.populate("driver", "name email")
+		.sort({ createdAt: -1 });
+	return ride;
+};
 const getCurrentUserRides = async (tokenData: JwtPayload) => {
 	const filter: any = {};
 
@@ -360,4 +383,5 @@ export const RideServices = {
 	getAllRides,
 	getAvailableRides,
 	acceptRide,
+	getActiveRide,
 };

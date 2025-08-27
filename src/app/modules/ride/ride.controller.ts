@@ -28,6 +28,16 @@ const getAllRides = catchAsync(async (req: Request, res: Response) => {
 		meta: result.meta,
 	});
 });
+const getActiveRide = catchAsync(async (req: Request, res: Response) => {
+	const tokenData = req.user;
+	const ride = await RideServices.getActiveRide(tokenData);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Active ride retrieved successfully",
+		data: ride,
+	});
+});
 const getCurrentUserRides = catchAsync(async (req: Request, res: Response) => {
 	const tokenData = req.user;
 	const result = await RideServices.getCurrentUserRides(tokenData);
@@ -130,4 +140,5 @@ export const RideControllers = {
 	getCurrentUserRides,
 	cancelRide,
 	getAllRides,
+	getActiveRide,
 };

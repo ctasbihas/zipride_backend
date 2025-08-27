@@ -7,6 +7,12 @@ import { UserServices } from "./user.service";
 const createUser = catchAsync(async (req: Request, res: Response) => {
 	const result = await UserServices.createUser(req.body);
 
+	res.cookie("token", result.token, {
+		httpOnly: true,
+		secure: true,
+		sameSite: "none",
+	});
+
 	sendResponse(res, {
 		statusCode: httpStatus.CREATED,
 		success: true,

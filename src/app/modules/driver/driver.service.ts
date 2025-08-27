@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+import isoWeek from "dayjs/plugin/isoWeek";
 import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../utils/AppError";
 import { RideStatus } from "../ride/ride.interface";
@@ -11,6 +13,7 @@ import {
 	PopulatedDriver,
 } from "./driver.interface";
 import { DriverModel } from "./driver.model";
+dayjs.extend(isoWeek);
 
 const createDriver = async (driverData: IDriver, currentUser: JwtPayload) => {
 	const driver = await UserModel.findById(currentUser.userId);
@@ -253,6 +256,120 @@ const updateDriverStatus = async (
 
 	return updatedDriver;
 };
+const getEarningsSummary = async (tokenData: JwtPayload) => {
+	const driverId = tokenData.userId;
+	const now = dayjs();
+	const startOfToday = now.startOf("day").toDate();
+	const startOfWeek = now.startOf("isoWeek").toDate();
+	const startOfMonth = now.startOf("month").toDate();
+
+	const [today, week, month, total] = await Promise.all([
+		RideModel.aggregate([
+			{
+				$match: {
+					driver: driverId,
+					rideStatus: "completed",
+					updatedAt: { $gte: startOfToday },
+				},
+			},
+			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+		]),
+		RideModel.aggregate([
+			{
+				$match: {
+					driver: driverId,
+					rideStatus: "completed",
+					updatedAt: { $gte: startOfWeek },
+				},
+			},
+			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+		]),
+		RideModel.aggregate([
+			{
+				$match: {
+					driver: driverId,
+					rideStatus: "completed",
+					updatedAt: { $gte: startOfMonth },
+				},
+			},
+			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+		]),
+		RideModel.countDocuments({ driver: driverId, rideStatus: "completed" }),
+	]);
+	return {
+		todayEarnings: today[0]?.earnings || 0,
+		weekEarnings: week[0]?.earnings || 0,
+		monthEarnings: month[0]?.earnings || 0,
+		totalRides: total,
+	};
+};
+
+// Earnings chart for driver
+const getEarningsChart = async (tokenData: JwtPayload) => {
+	const driverId = tokenData.userId;
+	const now = dayjs();
+	// Daily: by hour for today
+	const startOfToday = now.startOf("day").toDate();
+	const daily = await RideModel.aggregate([
+		{
+			$match: {
+				driver: driverId,
+				rideStatus: "completed",
+				updatedAt: { $gte: startOfToday },
+			},
+		},
+		{ $addFields: { hour: { $hour: "$updatedAt" } } },
+		{ $group: { _id: "$hour", earnings: { $sum: "$fare" } } },
+		{ $sort: { _id: 1 } },
+	]);
+	// Weekly: by day for current week
+	const startOfWeek = now.startOf("isoWeek").toDate();
+	const weekly = await RideModel.aggregate([
+		{
+			$match: {
+				driver: driverId,
+				rideStatus: "completed",
+				updatedAt: { $gte: startOfWeek },
+			},
+		},
+		{ $addFields: { day: { $dayOfWeek: "$updatedAt" } } },
+		{ $group: { _id: "$day", earnings: { $sum: "$fare" } } },
+		{ $sort: { _id: 1 } },
+	]);
+	// Monthly: by week for current month
+	const startOfMonth = now.startOf("month").toDate();
+	const monthly = await RideModel.aggregate([
+		{
+			$match: {
+				driver: driverId,
+				rideStatus: "completed",
+				updatedAt: { $gte: startOfMonth },
+			},
+		},
+		{ $addFields: { week: { $isoWeek: "$updatedAt" } } },
+		{ $group: { _id: "$week", earnings: { $sum: "$fare" } } },
+		{ $sort: { _id: 1 } },
+	]);
+	// Format labels
+	const dailyLabels = daily.map((d) => ({
+		label: `${d._id}:00`,
+		earnings: d.earnings,
+	}));
+	const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+	const weeklyLabels = weekly.map((d) => ({
+		label: weekDays[d._id - 1],
+		earnings: d.earnings,
+	}));
+	const monthlyLabels = monthly.map((d, i) => ({
+		label: `Week ${i + 1}`,
+		earnings: d.earnings,
+	}));
+	return {
+		daily: dailyLabels,
+		weekly: weeklyLabels,
+		monthly: monthlyLabels,
+	};
+};
 
 export const DriverServices = {
 	createDriver,
@@ -263,4 +380,6 @@ export const DriverServices = {
 	suspendDriver,
 	rejectDriver,
 	updateDriverStatus,
+	getEarningsSummary,
+	getEarningsChart,
 };

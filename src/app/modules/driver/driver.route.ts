@@ -46,5 +46,16 @@ router.get(
 	checkAuth(UserRole.DRIVER, UserRole.ADMIN),
 	DriverControllers.getDriverById
 );
+router.get(
+	"/earnings/summary",
+	checkAuth(UserRole.DRIVER),
+	DriverControllers.getEarningsSummary
+);
+
+router.get(
+	"/earnings/chart",
+	checkAuth(UserRole.DRIVER),
+	DriverControllers.getEarningsChart
+);
 
 export const DriverRoutes = router;

@@ -106,6 +106,27 @@ const getDriverById = catchAsync(async (req: Request, res: Response) => {
 		meta: result.meta,
 	});
 });
+const getEarningsSummary = catchAsync(async (req, res) => {
+	const tokenData = req.user;
+	const summary = await DriverServices.getEarningsSummary(tokenData);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Earnings summary fetched successfully",
+		data: summary,
+	});
+});
+
+const getEarningsChart = catchAsync(async (req, res) => {
+	const tokenData = req.user;
+	const chart = await DriverServices.getEarningsChart(tokenData);
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Earnings chart fetched successfully",
+		data: chart,
+	});
+});
 
 export const DriverControllers = {
 	createDriver,
@@ -116,4 +137,6 @@ export const DriverControllers = {
 	rejectDriver,
 	updateDriverStatus,
 	getDrivers,
+	getEarningsSummary,
+	getEarningsChart,
 };

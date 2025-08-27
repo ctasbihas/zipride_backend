@@ -14,6 +14,11 @@ router.get(
 	checkAuth(UserRole.DRIVER),
 	RideControllers.getAvailableRides
 );
+router.get(
+	"/active",
+	checkAuth(UserRole.DRIVER, UserRole.RIDER),
+	RideControllers.getActiveRide
+);
 
 router.get(
 	"/me",
