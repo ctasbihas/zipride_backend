@@ -3,6 +3,7 @@ import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../utils/AppError";
 import { hashPassword } from "../../utils/bcrypt";
 import { generateToken } from "../../utils/jwt";
+import { DriverModel } from "../driver/driver.model";
 import { IUser, UserRole } from "./user.interface";
 import { UserModel } from "./user.model";
 
@@ -67,7 +68,23 @@ const getAllUsers = async () => {
 	};
 };
 const currentUser = async (user: JwtPayload) => {
-	return await UserModel.findById(user.userId).select("-password");
+	const userInfo = await UserModel.findById(user.userId)
+		.select("-password")
+		.lean();
+
+	if (user.role === UserRole.DRIVER) {
+		const driverInfo = await DriverModel.findOne({
+			driverProfile: user.userId,
+		}).lean();
+
+		const data = {
+			...userInfo,
+			driverInfo,
+		};
+
+		return data;
+	}
+	return userInfo;
 };
 
 const getUserById = async (id: string, currentUser: JwtPayload) => {

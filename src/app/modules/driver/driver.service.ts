@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { JwtPayload } from "jsonwebtoken";
+import mongoose from "mongoose";
 import AppError from "../../utils/AppError";
 import { RideStatus } from "../ride/ride.interface";
 import { RideModel } from "../ride/ride.model";
@@ -56,7 +57,7 @@ const updateDriver = async (
 ) => {
 	const driver = await DriverModel.findOne({
 		driverProfile: id,
-	});
+	}).populate("driverProfile", "id");
 	if (!driver) {
 		throw new AppError("Driver not found", 404);
 	}
@@ -263,48 +264,68 @@ const getEarningsSummary = async (tokenData: JwtPayload) => {
 	const startOfWeek = now.startOf("isoWeek").toDate();
 	const startOfMonth = now.startOf("month").toDate();
 
-	const [today, week, month, total] = await Promise.all([
-		RideModel.aggregate([
-			{
-				$match: {
-					driver: driverId,
-					rideStatus: "completed",
-					updatedAt: { $gte: startOfToday },
+	const completedRides = await RideModel.find({
+		driver: driverId,
+		rideStatus: "completed",
+	});
+	const totalEarnings = completedRides.reduce(
+		(acc, ride) => acc + ride.fare,
+		0
+	);
+	const driverObjectId = new mongoose.Types.ObjectId(driverId);
+
+	const [todayAgg, weekAgg, monthAgg, totalCompletedRides] =
+		await Promise.all([
+			RideModel.aggregate([
+				{
+					$match: {
+						driver: driverId, // use same type as elsewhere (string gets cast if needed)
+						rideStatus: RideStatus.COMPLETED,
+						updatedAt: { $gte: startOfToday }, // use updatedAt for consistency
+					},
 				},
-			},
-			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
-		]),
-		RideModel.aggregate([
-			{
-				$match: {
-					driver: driverId,
-					rideStatus: "completed",
-					updatedAt: { $gte: startOfWeek },
+				{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+			]),
+			RideModel.aggregate([
+				{
+					$match: {
+						driver: driverId,
+						rideStatus: RideStatus.COMPLETED,
+						updatedAt: { $gte: startOfWeek },
+					},
 				},
-			},
-			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
-		]),
-		RideModel.aggregate([
-			{
-				$match: {
-					driver: driverId,
-					rideStatus: "completed",
-					updatedAt: { $gte: startOfMonth },
+				{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+			]),
+			RideModel.aggregate([
+				{
+					$match: {
+						driver: driverId,
+						rideStatus: RideStatus.COMPLETED,
+						updatedAt: { $gte: startOfMonth },
+					},
 				},
-			},
-			{ $group: { _id: null, earnings: { $sum: "$fare" } } },
-		]),
-		RideModel.countDocuments({ driver: driverId, rideStatus: "completed" }),
-	]);
+				{ $group: { _id: null, earnings: { $sum: "$fare" } } },
+			]),
+			RideModel.countDocuments({
+				driver: driverId,
+				rideStatus: RideStatus.COMPLETED,
+			}),
+		]);
+
+	const todayEarnings = todayAgg[0]?.earnings || 0;
+	const weekEarnings = weekAgg[0]?.earnings || 0;
+	const monthEarnings = monthAgg[0]?.earnings || 0;
+	console.log(todayEarnings, weekEarnings, monthEarnings, totalEarnings);
+
 	return {
-		todayEarnings: today[0]?.earnings || 0,
-		weekEarnings: week[0]?.earnings || 0,
-		monthEarnings: month[0]?.earnings || 0,
-		totalRides: total,
+		totalEarnings,
+		todayEarnings,
+		weekEarnings,
+		monthEarnings,
+		totalCompletedRides,
 	};
 };
 
-// Earnings chart for driver
 const getEarningsChart = async (tokenData: JwtPayload) => {
 	const driverId = tokenData.userId;
 	const now = dayjs();
