@@ -9,9 +9,18 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+const allowedOrigins = [
+	env.DEVELOPMENT_FRONTEND_URL,
+	env.PRODUCTION_FRONTEND_URL,
+];
+
 app.use(
 	cors({
-		origin: [env.DEVELOPMENT_FRONTEND_URL, env.PRODUCTION_FRONTEND_URL],
+		origin: function (origin, callback) {
+			if (!origin) return callback(null, true);
+			if (allowedOrigins.includes(origin)) return callback(null, true);
+			return callback(new Error("Origin not allowed by CORS"));
+		},
 		credentials: true,
 	})
 );
