@@ -11,8 +11,8 @@ const login = catchAsync(async (req: Request, res: Response) => {
 	const isProd = env.NODE_ENV === "production";
 	res.cookie("token", result.token, {
 		httpOnly: true,
-		secure: isProd,
-		sameSite: isProd ? "none" : "lax",
+		secure: true,
+		sameSite: "none",
 		maxAge: 3 * 24 * 60 * 60 * 1000,
 	});
 

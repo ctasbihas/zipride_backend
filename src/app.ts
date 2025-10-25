@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Request, Response } from "express";
+import { env } from "./app/config/env";
 import globalErrorHandler from "./app/middlewares/globalErrorHandler";
 import { indexRoutes } from "./app/routes";
 
@@ -12,11 +13,7 @@ const allowedOrigins = ["http://localhost:3000", "https://zipride.vercel.app"];
 
 app.use(
 	cors({
-		origin: function (origin, callback) {
-			if (!origin) return callback(null, true);
-			if (allowedOrigins.includes(origin)) return callback(null, true);
-			return callback(new Error("Origin not allowed by CORS"));
-		},
+		origin: [env.DEVELOPMENT_FRONTEND_URL, env.PRODUCTION_FRONTEND_URL],
 		credentials: true,
 	})
 );
