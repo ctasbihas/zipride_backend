@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
-import { env } from "../../config/env";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { UserServices } from "./user.service";
@@ -8,7 +7,6 @@ import { UserServices } from "./user.service";
 const createUser = catchAsync(async (req: Request, res: Response) => {
 	const result = await UserServices.createUser(req.body);
 
-	const isProd = env.NODE_ENV === "production";
 	res.cookie("token", result.token, {
 		httpOnly: true,
 		secure: true,

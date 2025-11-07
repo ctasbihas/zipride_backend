@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
-import { env } from "../../config/env";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { AuthServices } from "./auth.service";
@@ -8,8 +7,7 @@ import { AuthServices } from "./auth.service";
 const login = catchAsync(async (req: Request, res: Response) => {
 	const result = await AuthServices.login(req.body);
 
-	const isProd = env.NODE_ENV === "production";
-	res.cookie("token", result.token, {
+	res.cookie("zr-token", result.token, {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
@@ -28,7 +26,7 @@ const login = catchAsync(async (req: Request, res: Response) => {
 });
 
 const logout = catchAsync(async (req: Request, res: Response) => {
-	res.clearCookie("token", {
+	res.clearCookie("zr-token", {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",

@@ -9,8 +9,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
-const allowedOrigins = ["http://localhost:3000", "https://zipride.vercel.app"];
-
+app.set("trust proxy", 1);
 app.use(
 	cors({
 		origin: [env.DEVELOPMENT_FRONTEND_URL, env.PRODUCTION_FRONTEND_URL],
