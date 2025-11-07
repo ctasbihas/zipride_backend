@@ -9,7 +9,6 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
-app.set("trust proxy", 1);
 app.use(
 	cors({
 		origin: [env.DEVELOPMENT_FRONTEND_URL, env.PRODUCTION_FRONTEND_URL],
@@ -21,7 +20,6 @@ app.get("/", (req: Request, res: Response) => {
 	res.json({
 		success: true,
 		message: "⚡ ZipRide API - Lightning Fast Ride Booking",
-		timestamp: new Date().toISOString(),
 		version: "1.0.0",
 		slogan: "Zip to your destination at lightning speed! 🚗💨",
 	});

@@ -7,7 +7,7 @@ import { AuthServices } from "./auth.service";
 const login = catchAsync(async (req: Request, res: Response) => {
 	const result = await AuthServices.login(req.body);
 
-	res.cookie("zr-token", result.token, {
+	res.cookie("token", result.token, {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
@@ -23,7 +23,7 @@ const login = catchAsync(async (req: Request, res: Response) => {
 });
 
 const logout = catchAsync(async (req: Request, res: Response) => {
-	res.clearCookie("zr-token", {
+	res.clearCookie("token", {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
