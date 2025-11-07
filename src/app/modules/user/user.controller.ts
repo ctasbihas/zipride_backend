@@ -19,9 +19,6 @@ const createUser = catchAsync(async (req: Request, res: Response) => {
 		success: true,
 		message: "User created successfully",
 		data: result.user,
-		meta: {
-			accessToken: result.token,
-		},
 	});
 });
 
